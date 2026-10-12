@@ -1,0 +1,21 @@
+# Keil 编译产物（任意层级）
+**/Objects/
+**/Listings/
+**/*.axf
+**/*.build_log.htm
+**/*.d
+**/*.o
+**/*.crf
+**/*.lnp
+**/*.dep
+**/*.htm
+**/*.map
+**/*.iex
+**/*.bak
+
+# Keil 个人配置
+**/*.uvoptx
+**/*.uvgui.*
+
+# VS Code
+**/.vscode/
