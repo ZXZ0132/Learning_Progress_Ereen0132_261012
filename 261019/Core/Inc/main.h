@@ -36,7 +36,9 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+	extern volatile uint8_t frame;
+	extern volatile uint16_t length;
+	extern uint8_t input[128];
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

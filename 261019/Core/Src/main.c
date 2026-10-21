@@ -19,11 +19,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -44,8 +46,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint8_t Receive[10];
-uint8_t Send[10] = "Changed!";
+volatile uint8_t frame = 0;
+volatile uint16_t length = 0;
+uint8_t input[128];
+volatile uint16_t timeget = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,7 +61,18 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+static void DataProcessing(){
+if(frame){
+	char head[24];
+	int n;
+	n = sprintf(head, "[len=%u] ", (unsigned)length);
+	HAL_UART_Transmit(&huart1, (uint8_t *)head, n, 10);
+	HAL_UART_Transmit(&huart1, input, length, 10);
+	HAL_UART_Transmit(&huart1, (uint8_t *)"\r\n", 2, 10);
+	length = 0;
+	frame = 0;
+}
+}
 /* USER CODE END 0 */
 
 /**
@@ -86,12 +102,15 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
+	MX_DMA_Init();
   MX_GPIO_Init();
   MX_USART1_UART_Init();
-  MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-HAL_UART_Receive_IT(&huart1, Receive, 1);
+		HAL_UART_Receive_DMA(&huart1, input, 128);
+		__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+		HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -102,7 +121,8 @@ HAL_UART_Receive_IT(&huart1, Receive, 1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+  DataProcessing();
+	}
   /* USER CODE END 3 */
 }
 
@@ -145,21 +165,13 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-	if(huart == &huart1){
-	switch (Receive[0]){
-		case '0':
-			break;
-		case '1':
-			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_4);
-			HAL_UART_Transmit_IT(&huart1, Send, 9);
-		  
-			Receive[0] = 0;
-			break;
-	}
-	 HAL_UART_Receive_IT(&huart1, Receive, 1); 
-	}
+/*Led*/
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	/*if(htim->Instance == TIM2 ){
+			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_4)
+}*/
 }
+
 /* USER CODE END 4 */
 
 /**
