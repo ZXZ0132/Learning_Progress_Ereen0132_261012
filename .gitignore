@@ -16,6 +16,7 @@
 # Keil 个人配置
 **/*.uvoptx
 **/*.uvgui.*
-
+*.uvguix.*
+*.uvoptx
 # VS Code
 **/.vscode/
