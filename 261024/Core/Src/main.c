@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -58,6 +59,7 @@ void SystemClock_Config(void);
 char buf[64];
 float v;
 uint16_t raw;
+int n;
 /* USER CODE END 0 */
 
 /**
@@ -90,24 +92,17 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   MX_USART1_UART_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 HAL_ADCEx_Calibration_Start(&hadc1);
-HAL_ADC_Start(&hadc1);
+HAL_ADC_Start_IT(&hadc1);
+HAL_TIM_Base_Start_IT(&htim4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		while(HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK){}
-		raw = HAL_ADC_GetValue(&hadc1);
-		v = (raw * 3.3 ) / 4096;
-		int n;
-			
-		n = sprintf(buf, "[V = %.3f v ]\n", v);
-		HAL_UART_Transmit(&huart1, (uint8_t *)buf, n, HAL_MAX_DELAY);
-		HAL_Delay(1000);
-		HAL_ADC_Start(&hadc1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -161,7 +156,15 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
+	raw = HAL_ADC_GetValue(&hadc1);
+	v = (raw * 3.3) / 4096;
+	n = sprintf(buf, "[V = %.3f v]\n", v);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf, n, HAL_MAX_DELAY);
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+if(htim -> Instance == TIM4){HAL_ADC_Start_IT(&hadc1);}
+}
 /* USER CODE END 4 */
 
 /**
