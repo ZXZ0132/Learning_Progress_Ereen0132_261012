@@ -50,8 +50,8 @@ typedef struct{
 	int16_t current;
 	uint8_t temperature;
 }Motor_t;
-Motor_t motor_1;
-PID_t speed_pid;
+Motor_t motor[4];
+PID_t speed_pid[4];
 CAN_TxHeaderTypeDef hdr;
 uint32_t mailbox;
 
@@ -118,9 +118,9 @@ int main(void)
 		hdr.IDE = CAN_ID_STD;
 		hdr.RTR = CAN_RTR_DATA;
 		hdr.DLC = 8;
-		
-		PID_Init(&speed_pid, 0.0f, 0.0f, 0.0f, 16384.0f, -16384.0f, 200000.f);
-		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+	int i;
+	for(i=0; i<4; i++){PID_Init(&speed_pid[i], 0.0f, 0.0f, 0.0f, 16384.0f, -16384.0f, 200000.f);}
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
 	HAL_CAN_ConfigFilter(&hcan1, &f);
 	HAL_CAN_Start(&hcan1);
@@ -194,14 +194,18 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
 	CAN_RxHeaderTypeDef rx;
 	uint8_t d[8];
 	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx, d);
-	motor_1.rpm = (int16_t)(d[2] << 8) | d[3];
+	uint8_t i = (uint8_t)(rx.StdId - 0x201);
+	if(i>3) return;
+	motor[i].rpm = (int16_t)(d[2] << 8) | d[3];
 }
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	PID_Calc(&speed_pid, 100, motor_1.rpm, 0.005);
-		uint8_t tx[8] = {0};
-		int16_t cur = (int16_t)speed_pid.output;
-		tx[0] = (uint8_t)(cur >> 8);
-		tx[1] = (uint8_t)cur;
+	uint8_t tx[8] = {0};
+	for(int i = 0; i < 4; i++){
+		PID_Calc(&speed_pid[i], 100, motor[i].rpm, 0.005);
+		int16_t cur = (int16_t)speed_pid[i].output;
+		tx[i*2] = (uint8_t)(cur >> 8);
+		tx[i*2 + 1] = (uint8_t)cur;
+	}
 	HAL_CAN_AddTxMessage(&hcan1, &hdr, tx, &mailbox);
 }
 /* USER CODE END 4 */
