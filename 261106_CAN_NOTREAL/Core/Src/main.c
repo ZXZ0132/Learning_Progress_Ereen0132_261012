@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "pid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,6 +44,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+typedef struct{
+	uint16_t angle;
+	int16_t rpm;
+	int16_t current;
+	uint8_t temperature;
+}Motor_t;
+Motor_t motor_1;
+PID_t speed_pid;
+CAN_TxHeaderTypeDef hdr;
+uint32_t mailbox;
 
 /* USER CODE END PV */
 
@@ -87,9 +97,35 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN1_Init();
-  MX_CAN2_Init();
   MX_TIM6_Init();
+
   /* USER CODE BEGIN 2 */
+	CAN_FilterTypeDef f;
+
+		f.FilterBank           = 0;                     /* ⚠️ 0~13 之间 */
+		f.FilterMode           = CAN_FILTERMODE_IDMASK;
+		f.FilterScale          = CAN_FILTERSCALE_32BIT;
+		f.FilterIdHigh         = (0x200 & 0x7FF) << 5;
+		f.FilterIdLow          = 0;
+		f.FilterMaskIdHigh     = (0x7F8 & 0x7FF) << 5;
+		f.FilterMaskIdLow      = 0;
+		f.FilterFIFOAssignment = CAN_RX_FIFO0;
+		f.FilterActivation     = ENABLE;
+		f.SlaveStartFilterBank = 14;                    /* ⚠️ F427 特有 */
+		
+		hdr.StdId = 0x200;
+		hdr.ExtId = 0;
+		hdr.IDE = CAN_ID_STD;
+		hdr.RTR = CAN_RTR_DATA;
+		hdr.DLC = 8;
+		
+		PID_Init(&speed_pid, 0.0f, 0.0f, 0.0f, 16384.0f, -16384.0f, 200000.f);
+		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+	HAL_CAN_ConfigFilter(&hcan1, &f);
+	HAL_CAN_Start(&hcan1);
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+	HAL_TIM_Base_Start_IT(&htim6);
 
   /* USER CODE END 2 */
 
@@ -154,7 +190,20 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
+	CAN_RxHeaderTypeDef rx;
+	uint8_t d[8];
+	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx, d);
+	motor_1.rpm = (int16_t)(d[2] << 8) | d[3];
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	PID_Calc(&speed_pid, 100, motor_1.rpm, 0.005);
+		uint8_t tx[8] = {0};
+		int16_t cur = (int16_t)speed_pid.output;
+		tx[0] = (uint8_t)(cur >> 8);
+		tx[1] = (uint8_t)cur;
+	HAL_CAN_AddTxMessage(&hcan1, &hdr, tx, &mailbox);
+}
 /* USER CODE END 4 */
 
 /**
