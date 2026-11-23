@@ -21,12 +21,12 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include <string.h>
 #include <math.h>
 #include "pid.h"
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +49,8 @@
 uint8_t vofa_buf[16];
 float pi = 0;
 PID_t P;
+int16_t target_rpm = 100;
+float fake_rpm = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -158,9 +160,10 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim ->Instance != TIM1) return;
-	pi = pi +0.1;
-	if(pi > 6.28) pi = -6.28;
-	vofa_send(1.1f, sinf(pi)* 2.0f, 3.3f);
+	PID_Calc(&P, (float)target_rpm, fake_rpm, 0.02);
+	float rpm_ss = P.output * 0.05;
+	fake_rpm += (rpm_ss - fake_rpm) * 0.15;
+	vofa_send((float)target_rpm, fake_rpm, 3.3f);
 }
 /* USER CODE END 4 */
 
